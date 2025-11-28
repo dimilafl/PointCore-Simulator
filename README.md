@@ -85,11 +85,74 @@ Points are defined in `config/points.json`. Example:
 ## Development Milestones
 
 - [x] Milestone 1: Point definitions + runtime state
-- [ ] Milestone 2: State generator loop
-- [ ] Milestone 3: Alarm engine
-- [ ] Milestone 4: Historian with deadband/compression
-- [ ] Milestone 5: Minimal HMI
-- [ ] Milestone 6: Fault profiles + quality scenarios
+- [x] Milestone 2: State generator loop
+- [x] Milestone 3: Alarm engine
+- [x] Milestone 4: Historian with deadband/compression
+- [x] Milestone 5: Minimal HMI
+- [x] Milestone 6: Fault profiles + quality scenarios
+
+## Usage
+
+### Validate Configuration
+
+```bash
+python main.py validate
+python main.py validate --detailed
+```
+
+### Run Console Simulation
+
+```bash
+# Run 20 ticks at 1s intervals
+python main.py run
+
+# Custom configuration
+python main.py run -t 50 -i 0.5
+```
+
+### Start Web HMI
+
+```bash
+# Start web server on http://127.0.0.1:5000
+python main.py serve
+
+# Custom port and config
+python main.py -c config/points_with_faults.json serve -p 8080
+```
+
+Open http://127.0.0.1:5000 in your browser to view:
+- Real-time point summary table
+- Interactive trend charts
+- Alarm state visualization
+- Quality code display
+
+## Fault Profiles
+
+Configure fault injection in point definitions:
+
+**Freeze Value:**
+```json
+"fault_profile": {
+  "type": "freeze_value",
+  "params": {"duration_s": 10, "interval_s": 60}
+}
+```
+
+**Bad Quality Bursts:**
+```json
+"fault_profile": {
+  "type": "bad_quality_bursts",
+  "params": {"probability": 0.15, "duration_s": 5}
+}
+```
+
+**Out-of-Range Spikes:**
+```json
+"fault_profile": {
+  "type": "out_of_range_spike",
+  "params": {"probability": 0.1, "multiplier": 1.5}
+}
+```
 
 ## License
 

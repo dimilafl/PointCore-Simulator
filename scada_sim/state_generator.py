@@ -10,6 +10,123 @@ from dataclasses import dataclass
 from .runtime_state import QualityCode
 
 
+class FaultProfile:
+    """Base class for fault profiles."""
+
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.start_time: Optional[float] = None
+
+    def initialize(self, start_time: float) -> None:
+        """Initialize fault profile."""
+        self.start_time = start_time
+
+    def apply(self, value: float | bool | int, quality: QualityCode, now: float) -> tuple[float | bool | int, QualityCode]:
+        """
+        Apply fault to value and quality.
+
+        Returns:
+            (modified_value, modified_quality)
+        """
+        return value, quality
+
+
+class FreezeValueFault(FaultProfile):
+    """Freeze value - quality becomes STALE, value doesn't change."""
+
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+        self.frozen_value: Optional[float | bool | int] = None
+        self.freeze_start: Optional[float] = None
+        self.freeze_duration = config.get("duration_s", 10.0)
+        self.freeze_interval = config.get("interval_s", 60.0)
+
+    def apply(self, value: float | bool | int, quality: QualityCode, now: float) -> tuple[float | bool | int, QualityCode]:
+        """Apply freeze fault."""
+        if self.start_time is None:
+            return value, quality
+
+        elapsed = now - self.start_time
+
+        # Determine if we should be frozen
+        cycle_position = elapsed % self.freeze_interval
+        should_freeze = cycle_position < self.freeze_duration
+
+        if should_freeze:
+            if self.frozen_value is None:
+                self.frozen_value = value
+            return self.frozen_value, QualityCode.STALE
+        else:
+            self.frozen_value = None
+            return value, quality
+
+
+class BadQualityBurstFault(FaultProfile):
+    """Randomly set quality to BAD for short bursts."""
+
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+        self.burst_probability = config.get("probability", 0.1)
+        self.burst_duration = config.get("duration_s", 3.0)
+        self.in_burst = False
+        self.burst_start: Optional[float] = None
+
+    def apply(self, value: float | bool | int, quality: QualityCode, now: float) -> tuple[float | bool | int, QualityCode]:
+        """Apply bad quality burst fault."""
+        if self.in_burst:
+            # Check if burst should end
+            if now - self.burst_start >= self.burst_duration:
+                self.in_burst = False
+            else:
+                return value, QualityCode.BAD
+        else:
+            # Randomly start a burst
+            if random.random() < self.burst_probability:
+                self.in_burst = True
+                self.burst_start = now
+                return value, QualityCode.BAD
+
+        return value, quality
+
+
+class OutOfRangeSpikeFault(FaultProfile):
+    """Occasional huge spike beyond eng_min/max."""
+
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__(config)
+        self.spike_probability = config.get("probability", 0.05)
+        self.spike_multiplier = config.get("multiplier", 2.0)
+        self.eng_min = config.get("eng_min", 0.0)
+        self.eng_max = config.get("eng_max", 100.0)
+
+    def apply(self, value: float | bool | int, quality: QualityCode, now: float) -> tuple[float | bool | int, QualityCode]:
+        """Apply out-of-range spike fault."""
+        # Only apply to numeric values
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return value, quality
+
+        if random.random() < self.spike_probability:
+            # Generate spike beyond range
+            if random.random() < 0.5:
+                # Spike below minimum
+                spike_value = self.eng_min - (self.eng_max - self.eng_min) * (self.spike_multiplier - 1.0)
+            else:
+                # Spike above maximum
+                spike_value = self.eng_max + (self.eng_max - self.eng_min) * (self.spike_multiplier - 1.0)
+
+            return spike_value, QualityCode.UNCERTAIN
+
+        return value, quality
+
+
+# Fault profile registry
+FAULT_PROFILES = {
+    "freeze_value": FreezeValueFault,
+    "bad_quality_bursts": BadQualityBurstFault,
+    "out_of_range_spike": OutOfRangeSpikeFault,
+}
+
+
 @dataclass
 class Sample:
     """A single point sample."""
@@ -37,6 +154,20 @@ class GeneratorState:
         self.digital_state: int = 0  # For digital points
         self.last_flip_time: float = 0.0
 
+        # Fault profile
+        self.fault_profile: Optional[FaultProfile] = None
+        fault_config = self.generator_config.get("fault_profile")
+        if fault_config:
+            fault_type = fault_config.get("type")
+            if fault_type in FAULT_PROFILES:
+                fault_params = fault_config.get("params", {})
+                # Add scale info if available for out_of_range_spike
+                if fault_type == "out_of_range_spike" and "scale" in point_def:
+                    scale = point_def["scale"]
+                    fault_params.setdefault("eng_min", scale.get("eng_min", 0))
+                    fault_params.setdefault("eng_max", scale.get("eng_max", 100))
+                self.fault_profile = FAULT_PROFILES[fault_type](fault_params)
+
     def initialize(self, start_time: float) -> None:
         """Initialize generator state."""
         self.start_time = start_time
@@ -58,6 +189,10 @@ class GeneratorState:
             self.digital_state = self.params.get("initial_state", 0)
             self.last_value = self.digital_state
             self.last_flip_time = start_time
+
+        # Initialize fault profile
+        if self.fault_profile:
+            self.fault_profile.initialize(start_time)
 
     def generate(self, now: float) -> Sample:
         """Generate next sample."""
@@ -85,8 +220,12 @@ class GeneratorState:
 
         self.last_value = value
 
-        # Default quality is GOOD (will add fault profiles in Milestone 6)
+        # Default quality is GOOD
         quality = QualityCode.GOOD
+
+        # Apply fault profile if configured
+        if self.fault_profile:
+            value, quality = self.fault_profile.apply(value, quality, now)
 
         return Sample(
             point_id=self.point_id,

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PointCore Simulator - HMI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+        }
+
+        .header {
+            background: #2a2a2a;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #00ff00;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .status {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .status.running {
+            color: #00ff00;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: #2a2a2a;
+            border: 2px solid #00ff00;
+            padding: 15px;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ff00;
+            border-bottom: 1px solid #00ff00;
+            padding-bottom: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px;
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
+            font-size: 12px;
+        }
+
+        td {
+            padding: 8px;
+            border: 1px solid #444;
+            font-size: 12px;
+        }
+
+        tr:hover {
+            background: #333;
+        }
+
+        .clickable {
+            cursor: pointer;
+        }
+
+        .quality-good {
+            color: #00ff00;
+        }
+
+        .quality-bad {
+            color: #ff0000;
+        }
+
+        .quality-uncertain {
+            color: #ffaa00;
+        }
+
+        .alarm-ok {
+            color: #00ff00;
+        }
+
+        .alarm-active {
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        #trendCanvas {
+            width: 100%;
+            height: 300px;
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
+        }
+
+        .trend-info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ POINTCORE SIMULATOR - HMI</h1>
+        <div class="status" id="status">Status: Loading...</div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <h2>POINT SUMMARY</h2>
+            <div id="pointsTable">
+                <div class="loading">Loading points...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>TREND VIEW</h2>
+            <div id="trendContainer">
+                <div class="loading">Click a point to view trend</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedPointId = null;
+        let trendChart = null;
+
+        // Fetch and display points
+        async function updatePoints() {
+            try {
+                const response = await fetch('/api/points');
+                const data = await response.json();
+
+                // Update status
+                const statusEl = document.getElementById('status');
+                statusEl.textContent = `Status: ${data.running ? 'RUNNING' : 'STOPPED'} | Last Update: ${new Date(data.timestamp * 1000).toLocaleTimeString()}`;
+                statusEl.className = `status ${data.running ? 'running' : ''}`;
+
+                // Update points table
+                const tableHtml = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Point ID</th>
+                                <th>Name</th>
+                                <th>Value</th>
+                                <th>Quality</th>
+                                <th>Alarm</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.points.filter(p => p.scan_enabled).map(point => {
+                                const qualityClass = point.quality === 'GOOD' ? 'quality-good' :
+                                                    point.quality === 'BAD' ? 'quality-bad' : 'quality-uncertain';
+                                const alarmClass = point.alarm_active ? 'alarm-active' : 'alarm-ok';
+                                const alarmText = point.alarm_active ? `ALM(${point.alarm_severity})` : 'OK';
+
+                                let valueText = 'N/A';
+                                if (point.value !== null) {
+                                    if (point.type === 'digital') {
+                                        const label = point.state_labels ? point.state_labels[point.value] : point.value;
+                                        valueText = `${point.value} (${label})`;
+                                    } else {
+                                        valueText = `${typeof point.value === 'number' ? point.value.toFixed(2) : point.value} ${point.eu}`;
+                                    }
+                                }
+
+                                return `
+                                    <tr class="clickable" onclick="selectPoint('${point.point_id}')">
+                                        <td>${point.point_id}</td>
+                                        <td>${point.name}</td>
+                                        <td>${valueText}</td>
+                                        <td class="${qualityClass}">${point.quality}</td>
+                                        <td class="${alarmClass}">${alarmText}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+
+                document.getElementById('pointsTable').innerHTML = tableHtml;
+            } catch (error) {
+                console.error('Error fetching points:', error);
+            }
+        }
+
+        // Select and display trend for a point
+        async function selectPoint(pointId) {
+            selectedPointId = pointId;
+            await updateTrend();
+        }
+
+        // Update trend view
+        async function updateTrend() {
+            if (!selectedPointId) return;
+
+            try {
+                const response = await fetch(`/api/trend/${selectedPointId}`);
+                const data = await response.json();
+
+                const container = document.getElementById('trendContainer');
+                container.innerHTML = `
+                    <canvas id="trendCanvas"></canvas>
+                    <div class="trend-info">
+                        <strong>${data.name}</strong> (${data.point_id}) | Last ${data.samples.length} samples
+                    </div>
+                `;
+
+                drawTrend(data);
+            } catch (error) {
+                console.error('Error fetching trend:', error);
+            }
+        }
+
+        // Draw trend chart
+        function drawTrend(data) {
+            const canvas = document.getElementById('trendCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = 300;
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = 40;
+
+            // Clear canvas
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, width, height);
+
+            if (data.samples.length === 0) {
+                ctx.fillStyle = '#888';
+                ctx.font = '14px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('No data available', width / 2, height / 2);
+                return;
+            }
+
+            // Get data ranges
+            const times = data.samples.map(s => s.timestamp);
+            const values = data.samples.map(s => s.value);
+            const minTime = Math.min(...times);
+            const maxTime = Math.max(...times);
+            const minValue = Math.min(...values);
+            const maxValue = Math.max(...values);
+
+            const valueRange = maxValue - minValue || 1;
+            const timeRange = maxTime - minTime || 1;
+
+            // Draw axes
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, height - padding);
+            ctx.lineTo(width - padding, height - padding);
+            ctx.stroke();
+
+            // Draw alarm thresholds
+            if (data.thresholds) {
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+
+                const drawThreshold = (value, color, label) => {
+                    if (value === undefined) return;
+                    const y = height - padding - ((value - minValue) / valueRange) * (height - 2 * padding);
+                    ctx.strokeStyle = color;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, y);
+                    ctx.lineTo(width - padding, y);
+                    ctx.stroke();
+
+                    ctx.fillStyle = color;
+                    ctx.font = '10px monospace';
+                    ctx.fillText(label, width - padding + 5, y + 3);
+                };
+
+                drawThreshold(data.thresholds.hi_hi, '#ff0000', 'HI_HI');
+                drawThreshold(data.thresholds.hi, '#ffaa00', 'HI');
+                drawThreshold(data.thresholds.lo, '#ffaa00', 'LO');
+                drawThreshold(data.thresholds.lo_lo, '#ff0000', 'LO_LO');
+
+                ctx.setLineDash([]);
+            }
+
+            // Draw data line
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            data.samples.forEach((sample, i) => {
+                const x = padding + ((sample.timestamp - minTime) / timeRange) * (width - 2 * padding);
+                const y = height - padding - ((sample.value - minValue) / valueRange) * (height - 2 * padding);
+
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+
+            ctx.stroke();
+
+            // Draw data points
+            data.samples.forEach(sample => {
+                const x = padding + ((sample.timestamp - minTime) / timeRange) * (width - 2 * padding);
+                const y = height - padding - ((sample.value - minValue) / valueRange) * (height - 2 * padding);
+
+                ctx.fillStyle = sample.quality === 'GOOD' ? '#00ff00' : '#ff0000';
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw labels
+            ctx.fillStyle = '#888';
+            ctx.font = '12px monospace';
+            ctx.textAlign = 'center';
+
+            // Value labels
+            ctx.textAlign = 'right';
+            ctx.fillText(maxValue.toFixed(1), padding - 5, padding + 10);
+            ctx.fillText(minValue.toFixed(1), padding - 5, height - padding);
+
+            // Time labels
+            ctx.textAlign = 'center';
+            const startDate = new Date(minTime * 1000);
+            const endDate = new Date(maxTime * 1000);
+            ctx.fillText(startDate.toLocaleTimeString(), padding, height - padding + 20);
+            ctx.fillText(endDate.toLocaleTimeString(), width - padding, height - padding + 20);
+        }
+
+        // Auto-refresh
+        function startAutoRefresh() {
+            updatePoints();
+            setInterval(updatePoints, 1000);
+
+            setInterval(() => {
+                if (selectedPointId) {
+                    updateTrend();
+                }
+            }, 2000);
+        }
+
+        // Start on load
+        window.addEventListener('load', startAutoRefresh);
+    </script>
+</body>
+</html>

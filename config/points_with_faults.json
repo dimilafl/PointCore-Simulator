@@ -1,0 +1,214 @@
+{
+  "points": [
+    {
+      "point_id": "PT_101",
+      "name": "Feedwater Pressure",
+      "type": "analog",
+      "eu": "psi",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 300
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "ramp",
+        "params": {
+          "min": 50,
+          "max": 250,
+          "period_s": 120
+        }
+      },
+      "alarm": {
+        "hi_hi": 260,
+        "hi": 240,
+        "lo": 60,
+        "lo_lo": 40,
+        "roc_threshold": 10.0,
+        "delay_on": 2.0,
+        "delay_off": 2.0
+      },
+      "logging": {
+        "deadband": 0.5,
+        "compression": true,
+        "max_rate_s": 1.0
+      }
+    },
+    {
+      "point_id": "TT_201",
+      "name": "Reactor Temperature (with freeze fault)",
+      "type": "analog",
+      "eu": "°F",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 1000
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "sine",
+        "params": {
+          "min": 500,
+          "max": 700,
+          "period_s": 180
+        },
+        "fault_profile": {
+          "type": "freeze_value",
+          "params": {
+            "duration_s": 10,
+            "interval_s": 60
+          }
+        }
+      },
+      "alarm": {
+        "hi_hi": 850,
+        "hi": 750,
+        "lo": 450,
+        "lo_lo": 400
+      },
+      "logging": {
+        "deadband": 1.0,
+        "compression": true,
+        "max_rate_s": 2.0
+      }
+    },
+    {
+      "point_id": "FT_301",
+      "name": "Cooling Flow (with bad quality bursts)",
+      "type": "analog",
+      "eu": "gpm",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 500
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "random_walk",
+        "params": {
+          "min": 100,
+          "max": 400,
+          "step_size": 5
+        },
+        "fault_profile": {
+          "type": "bad_quality_bursts",
+          "params": {
+            "probability": 0.15,
+            "duration_s": 5
+          }
+        }
+      },
+      "alarm": {
+        "hi": 450,
+        "lo": 50
+      },
+      "logging": {
+        "deadband": 2.0,
+        "compression": true,
+        "max_rate_s": 1.0
+      }
+    },
+    {
+      "point_id": "PT_401",
+      "name": "System Pressure (with out-of-range spikes)",
+      "type": "analog",
+      "eu": "bar",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 100
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "sine",
+        "params": {
+          "min": 40,
+          "max": 60,
+          "period_s": 90
+        },
+        "fault_profile": {
+          "type": "out_of_range_spike",
+          "params": {
+            "probability": 0.1,
+            "multiplier": 1.5
+          }
+        }
+      },
+      "alarm": {
+        "hi_hi": 90,
+        "hi": 75,
+        "lo": 25,
+        "lo_lo": 10
+      },
+      "logging": {
+        "deadband": 1.0,
+        "compression": true,
+        "max_rate_s": 1.0
+      }
+    },
+    {
+      "point_id": "LT_501",
+      "name": "Tank Level (normal)",
+      "type": "analog",
+      "eu": "%",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 100
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "constant",
+        "params": {
+          "value": 75.0
+        }
+      },
+      "alarm": {
+        "hi_hi": 95,
+        "hi": 85,
+        "lo": 15,
+        "lo_lo": 5
+      },
+      "logging": {
+        "deadband": 0.5,
+        "compression": false,
+        "max_rate_s": 5.0
+      }
+    },
+    {
+      "point_id": "DI_601",
+      "name": "Pump Running Status",
+      "type": "digital",
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "digital_flip",
+        "params": {
+          "interval_s": 30,
+          "initial_state": 1
+        }
+      },
+      "digital_states": {
+        "0_label": "STOPPED",
+        "1_label": "RUNNING",
+        "alarm_on_state": 0
+      },
+      "logging": {
+        "compression": false,
+        "max_rate_s": 0.5
+      }
+    }
+  ]
+}

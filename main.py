@@ -12,6 +12,7 @@ from scada_sim.runtime_state import PointRuntimeState, QualityCode
 from scada_sim.state_generator import StateGenerator
 from scada_sim.alarm_evaluator import AlarmEvaluator
 from scada_sim.historian_logger import HistorianLogger
+from scada_sim.hmi import HMIServer
 
 
 def load_and_validate(config_file: str, quiet: bool = False) -> PointDefinitionEngine:
@@ -231,6 +232,32 @@ def cmd_run(args):
     print("\n✓ Milestone 4 complete: Historian with deadband/compression")
 
 
+def cmd_serve(args):
+    """Serve command - start HMI web interface."""
+    # Load point definitions
+    engine = load_and_validate(args.config)
+
+    print("=" * 80)
+    print("POINTCORE SIMULATOR - HMI SERVER")
+    print("=" * 80)
+    print(f"Configuration: {args.config}")
+    print(f"Tick interval: {args.interval}s")
+    print(f"Server URL: http://{args.host}:{args.port}")
+    print("=" * 80)
+    print("\nStarting simulation and web server...")
+    print("Press Ctrl+C to stop\n")
+
+    # Create and run HMI server
+    hmi = HMIServer(engine, tick_interval=args.interval)
+
+    try:
+        hmi.run(host=args.host, port=args.port, debug=False)
+    except KeyboardInterrupt:
+        print("\n" + "=" * 80)
+        print("Server stopped by user")
+        print("\n✓ Milestone 5 complete: Minimal HMI operational")
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -271,6 +298,27 @@ def main():
         help="Tick interval in seconds (default: 1.0)"
     )
     run_parser.set_defaults(func=cmd_run)
+
+    # Serve command
+    serve_parser = subparsers.add_parser("serve", help="Start HMI web interface")
+    serve_parser.add_argument(
+        "-i", "--interval",
+        type=float,
+        default=1.0,
+        help="Tick interval in seconds (default: 1.0)"
+    )
+    serve_parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host address (default: 127.0.0.1)"
+    )
+    serve_parser.add_argument(
+        "-p", "--port",
+        type=int,
+        default=5000,
+        help="Port number (default: 5000)"
+    )
+    serve_parser.set_defaults(func=cmd_serve)
 
     args = parser.parse_args()
 

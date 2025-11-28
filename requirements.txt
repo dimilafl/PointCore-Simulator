@@ -1,6 +1,5 @@
 # PointCore-Simulator requirements
 # Minimal dependencies for SCADA point simulation
 
-# No external dependencies required for Milestone 1-4
-# Future milestones may add:
-# flask>=3.0.0  # For Milestone 5 (HMI web interface)
+# Milestone 5: HMI web interface
+flask>=3.0.0
