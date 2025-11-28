@@ -1,0 +1,218 @@
+{
+  "points": [
+    {
+      "point_id": "PT_101",
+      "name": "Feedwater Pressure",
+      "type": "analog",
+      "eu": "psi",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 300
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "ramp",
+        "params": {
+          "min": 50,
+          "max": 250,
+          "period_s": 120
+        }
+      },
+      "alarm": {
+        "hi_hi": 260,
+        "hi": 240,
+        "lo": 60,
+        "lo_lo": 40,
+        "roc_threshold": 10.0,
+        "delay_on": 2.0,
+        "delay_off": 2.0
+      },
+      "logging": {
+        "deadband": 0.5,
+        "compression": true,
+        "max_rate_s": 1.0
+      }
+    },
+    {
+      "point_id": "TT_201",
+      "name": "Reactor Temperature",
+      "type": "analog",
+      "eu": "°F",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 1000
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "sine",
+        "params": {
+          "min": 500,
+          "max": 700,
+          "period_s": 180
+        }
+      },
+      "alarm": {
+        "hi_hi": 850,
+        "hi": 750,
+        "lo": 450,
+        "lo_lo": 400,
+        "roc_threshold": 5.0,
+        "delay_on": 3.0,
+        "delay_off": 3.0
+      },
+      "logging": {
+        "deadband": 1.0,
+        "compression": true,
+        "max_rate_s": 2.0
+      }
+    },
+    {
+      "point_id": "FT_301",
+      "name": "Cooling Flow Rate",
+      "type": "analog",
+      "eu": "gpm",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 500
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "random_walk",
+        "params": {
+          "min": 100,
+          "max": 400,
+          "step_size": 5
+        }
+      },
+      "alarm": {
+        "hi": 450,
+        "lo": 50,
+        "delay_on": 5.0,
+        "delay_off": 5.0
+      },
+      "logging": {
+        "deadband": 2.0,
+        "compression": true,
+        "max_rate_s": 1.0
+      }
+    },
+    {
+      "point_id": "LT_401",
+      "name": "Tank Level",
+      "type": "analog",
+      "eu": "%",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 100
+      },
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "constant",
+        "params": {
+          "value": 75.0
+        }
+      },
+      "alarm": {
+        "hi_hi": 95,
+        "hi": 85,
+        "lo": 15,
+        "lo_lo": 5,
+        "delay_on": 1.0,
+        "delay_off": 1.0
+      },
+      "logging": {
+        "deadband": 0.5,
+        "compression": false,
+        "max_rate_s": 5.0
+      }
+    },
+    {
+      "point_id": "DI_501",
+      "name": "Pump Running Status",
+      "type": "digital",
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "digital_flip",
+        "params": {
+          "interval_s": 60,
+          "initial_state": 1
+        }
+      },
+      "digital_states": {
+        "0_label": "STOPPED",
+        "1_label": "RUNNING",
+        "alarm_on_state": 0
+      },
+      "logging": {
+        "compression": false,
+        "max_rate_s": 0.5
+      }
+    },
+    {
+      "point_id": "DI_502",
+      "name": "Emergency Stop Active",
+      "type": "digital",
+      "flags": {
+        "scan_enabled": true,
+        "alarm_enabled": true
+      },
+      "generator": {
+        "mode": "constant",
+        "params": {
+          "value": 0
+        }
+      },
+      "digital_states": {
+        "0_label": "NORMAL",
+        "1_label": "E-STOP",
+        "alarm_on_state": 1
+      },
+      "logging": {
+        "compression": false,
+        "max_rate_s": 0.1
+      }
+    },
+    {
+      "point_id": "AT_601",
+      "name": "System Efficiency",
+      "type": "analog",
+      "eu": "%",
+      "scale": {
+        "eng_min": 0,
+        "eng_max": 100
+      },
+      "flags": {
+        "scan_enabled": false,
+        "alarm_enabled": false
+      },
+      "generator": {
+        "mode": "sine",
+        "params": {
+          "min": 80,
+          "max": 95,
+          "period_s": 300
+        }
+      },
+      "logging": {
+        "deadband": 1.0,
+        "compression": true,
+        "max_rate_s": 10.0
+      }
+    }
+  ]
+}
